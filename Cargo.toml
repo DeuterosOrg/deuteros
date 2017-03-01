@@ -1,0 +1,8 @@
+[package]
+name = "deuteros"
+version = "0.1.0"
+authors = ["Jakub Jermář <jakub@jermar.eu>"]
+
+[dependencies]
+rlibc = "*"
+
