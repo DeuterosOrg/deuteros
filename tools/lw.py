@@ -62,7 +62,7 @@ def collect():
 
 def link(args):
     cmdline = " ".join(args)
-    subprocess.call("ld -m elf_i386 --gc-sections -n -Tlink.ld %s" % cmdline,
+    subprocess.call("ld -m elf_i386 --gc-sections -n -Ttools/link.ld %s" % cmdline,
         shell = True)
 
 args = collect()
