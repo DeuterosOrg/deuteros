@@ -69,15 +69,96 @@ pub static MULTIBOOT_HEADER: MultibootHeader =
                          unsafe { &hardcoded_unmapped_load_address },
                          start);
 
+#[repr(C)]
+pub struct Des {
+    limit_0_15: u16,
+    base_0_15: u16,
+    base_16_23: u8,
+    access: u8,
+    limit_16_19_s_g: u8,
+    base_24_31: u8,
+}
+
+const PL_KERNEL: u8 = 0;
+const PL_USER: u8 = 3;
+
+impl Des {
+    const AR_PRESENT: u8 = 1 << 7;
+    const AR_DATA: u8 = 2 << 3;
+    const AR_CODE: u8 = 3 << 3;
+    const AR_WRITE: u8 = 1 << 1;
+
+    const DPL_KERNEL: u8 = PL_KERNEL << 5;
+    const DPL_USER: u8 = PL_USER << 5;
+
+    const fn new(base: u32, limit: u32, access: u8, s: bool, g: bool) -> Self {
+        Des {
+            base_0_15: base as u16,
+            base_16_23: (base >> 16) as u8,
+            base_24_31: (base >> 24) as u8,
+            limit_0_15: limit as u16,
+            limit_16_19_s_g: (((limit >> 16) & 0xff) | (s as u32) << 6 | (g as u32) << 7) as u8,
+            access: access,
+        }
+    }
+}
+
+type Gdt = [Des; 5];
+
+#[link_section = "K_DATA_START"]
+#[no_mangle]
+pub static mut BOOTSTRAP_GDT: Gdt =
+    [// Null descriptor
+     Des::new(0, 0, 0, false, false),
+     // Kernel code
+     Des::new(0,
+              0xfffff,
+              Des::AR_PRESENT | Des::AR_CODE | Des::DPL_KERNEL,
+              true,
+              true),
+     // Kernel data
+     Des::new(0,
+              0xfffff,
+              Des::AR_PRESENT | Des::AR_DATA | Des::AR_WRITE | Des::DPL_KERNEL,
+              true,
+              true),
+     // User code
+     Des::new(0,
+              0xfffff,
+              Des::AR_PRESENT | Des::AR_CODE | Des::DPL_USER,
+              true,
+              true),
+     // User data
+     Des::new(0,
+              0xfffff,
+              Des::AR_PRESENT | Des::AR_DATA | Des::AR_WRITE | Des::DPL_USER,
+              true,
+              true)];
+
+#[repr(C,packed)]
+pub struct Gdtr {
+    selector: u16,
+    gdt: &'static Gdt,
+}
+
+#[link_section = "K_DATA_START"]
+#[no_mangle]
+pub static BOOTSTRAP_GDTR: Gdtr = Gdtr {
+    selector: 0,
+    gdt: unsafe { &BOOTSTRAP_GDT },
+};
+
 #[link_section = "K_TEXT_START"]
 #[naked]
 #[no_mangle]
 pub extern "C" fn start() -> ! {
     unsafe {
-        asm!("
-             cli\n
-             cld\n
-        ");
+        asm!(
+        "
+             cli
+             cld
+             lgdtl BOOTSTRAP_GDTR 
+        " : : : : "volatile");
     }
     loop {}
 }
