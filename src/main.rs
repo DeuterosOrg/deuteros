@@ -103,7 +103,8 @@ impl Des {
     }
 }
 
-type Gdt = [Des; 5];
+const GDT_ITEMS: usize = 5;
+type Gdt = [Des; GDT_ITEMS];
 
 #[link_section = "K_DATA_START"]
 #[no_mangle]
@@ -137,14 +138,14 @@ pub static mut BOOTSTRAP_GDT: Gdt =
 
 #[repr(C,packed)]
 pub struct Gdtr {
-    selector: u16,
+    limit: u16,
     gdt: &'static Gdt,
 }
 
 #[link_section = "K_DATA_START"]
 #[no_mangle]
 pub static BOOTSTRAP_GDTR: Gdtr = Gdtr {
-    selector: 0,
+    limit: (GDT_ITEMS * 8) as u16,
     gdt: unsafe { &BOOTSTRAP_GDT },
 };
 
