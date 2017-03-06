@@ -69,6 +69,10 @@ pub static MULTIBOOT_HEADER: MultibootHeader =
                          unsafe { &hardcoded_unmapped_load_address },
                          start);
 
+const fn selector(s: u16) -> u16 {
+    s << 3
+}
+
 #[repr(C)]
 pub struct Des {
     limit_0_15: u16,
@@ -153,13 +157,25 @@ pub static BOOTSTRAP_GDTR: Gdtr = Gdtr {
 #[naked]
 #[no_mangle]
 pub extern "C" fn start() -> ! {
+    const CODE_SEG: u32 = selector(1) as u32; 
+    const DATA_SEG: u32 = selector(2) as u32;
+
     unsafe {
-        asm!(
-        "
-             cli
-             cld
-             lgdtl BOOTSTRAP_GDTR 
-        " : : : : "volatile");
+        asm!("
+            cli
+            cld
+
+            lgdtl $0
+            movl $1, %eax
+            mov %ax, %ds
+            mov %ax, %es
+            mov %ax, %fs
+            mov %ax, %gs
+            mov %ax, %ss
+            ljmpl $2, $$label.${:uid}
+        label.${:uid}:
+            
+        " : : "*m" (&BOOTSTRAP_GDTR), "Z" (DATA_SEG), "Z" (CODE_SEG) : "memory" : "volatile");
     }
     loop {}
 }
